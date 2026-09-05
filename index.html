@@ -900,6 +900,69 @@
     return texture;
   }
 
+  function createHazardTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // 눈에 확 띄는 고대비 네온 옐로우 & 블랙 해저드 사선 스트라이프
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(0, 0, 256, 256);
+
+    ctx.fillStyle = '#110505';
+    const stripeWidth = 32;
+    for (let i = -256; i < 512; i += stripeWidth * 2) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + stripeWidth, 0);
+      ctx.lineTo(i + stripeWidth + 256, 256);
+      ctx.lineTo(i + 256, 256);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(2, 2);
+    return texture;
+  }
+
+  function createWarningSignTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // 짙은 레드 테두리와 네온 옐로우 경고 심볼
+    ctx.fillStyle = '#220008';
+    ctx.fillRect(0, 0, 256, 256);
+
+    ctx.strokeStyle = '#ff0055';
+    ctx.lineWidth = 14;
+    ctx.strokeRect(8, 8, 240, 240);
+
+    // 경고 삼각형
+    ctx.strokeStyle = '#ffcc00';
+    ctx.lineWidth = 16;
+    ctx.beginPath();
+    ctx.moveTo(128, 40);
+    ctx.lineTo(220, 200);
+    ctx.lineTo(36, 200);
+    ctx.closePath();
+    ctx.stroke();
+
+    // 느낌표
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(120, 85, 16, 60);
+    ctx.beginPath();
+    ctx.arc(128, 172, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(canvas);
+  }
+
   /* ==========================================================================
      4. THREE.JS 3D SCENE SETUP
      ========================================================================== */
@@ -1213,73 +1276,202 @@
   function spawnObstacle() {
     const laneIndex = Math.floor(Math.random() * 3);
     const spawnX = LANES[laneIndex];
-    const spawnZ = -300 - Math.random() * 60;
+    const spawnZ = -320 - Math.random() * 40;
 
     const typeRand = Math.random();
     let obs;
 
-    if (typeRand < 0.4) {
-      // 1. 네온 레이저 장벽 (Laser Barrier)
+    if (typeRand < 0.38) {
+      // 1. 고휘도 네온 레이저 장벽 (High-Visibility Laser Barrier)
       obs = new THREE.Group();
-      obs.userData = { type: 'barrier', hitRadius: 1.4, hitHeight: 2.2 };
+      obs.userData = { type: 'barrier', hitRadius: 1.5, hitHeight: 2.3 };
 
-      const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 3.5, 8);
-      const poleMat = new THREE.MeshStandardMaterial({ color: 0x222233, metalness: 0.9 });
+      // 눈에 확 띄는 네온 옐로우/오렌지 파일런
+      const poleGeo = new THREE.CylinderGeometry(0.25, 0.25, 3.6, 8);
+      const poleMat = new THREE.MeshStandardMaterial({
+        color: 0xffaa00,
+        emissive: 0xff6600,
+        emissiveIntensity: 0.6,
+        roughness: 0.2
+      });
 
       const leftPole = new THREE.Mesh(poleGeo, poleMat);
-      leftPole.position.set(-1.4, 1.75, 0);
+      leftPole.position.set(-1.5, 1.8, 0);
       obs.add(leftPole);
 
       const rightPole = new THREE.Mesh(poleGeo, poleMat);
-      rightPole.position.set(1.4, 1.75, 0);
+      rightPole.position.set(1.5, 1.8, 0);
       obs.add(rightPole);
 
-      const beamGeo = new THREE.BoxGeometry(2.8, 0.4, 0.4);
+      // 기둥 상단 깜빡이는 적색 경고등
+      const beaconGeo = new THREE.SphereGeometry(0.25, 8, 8);
+      const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
+
+      const leftBeacon = new THREE.Mesh(beaconGeo, beaconMat);
+      leftBeacon.position.set(-1.5, 3.7, 0);
+      obs.add(leftBeacon);
+
+      const rightBeacon = new THREE.Mesh(beaconGeo, beaconMat);
+      rightBeacon.position.set(1.5, 3.7, 0);
+      obs.add(rightBeacon);
+
+      // 외부 핫핑크 발광 레이저 빔
+      const beamGeo = new THREE.BoxGeometry(3.1, 0.5, 0.5);
       const beamMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
       const beam = new THREE.Mesh(beamGeo, beamMat);
-      beam.position.set(0, 1.2, 0);
+      beam.position.set(0, 1.3, 0);
       obs.add(beam);
+
+      // 내부 순백색 고광도 코어 (시인성 극대화)
+      const coreBeamGeo = new THREE.BoxGeometry(3.05, 0.16, 0.16);
+      const coreBeamMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const coreBeam = new THREE.Mesh(coreBeamGeo, coreBeamMat);
+      coreBeam.position.set(0, 1.3, 0);
+      obs.add(coreBeam);
+
+      // 도로 바닥 붉은색 경고 프로젝션 라인 (멀리서도 레인 즉시 인지)
+      const warningDecalGeo = new THREE.PlaneGeometry(3.2, 5.0);
+      const warningDecalMat = new THREE.MeshBasicMaterial({
+        color: 0xff0044,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false
+      });
+      const warningDecal = new THREE.Mesh(warningDecalGeo, warningDecalMat);
+      warningDecal.rotation.x = -Math.PI / 2;
+      warningDecal.position.set(0, 0.05, 0);
+      obs.add(warningDecal);
+
+      // 레이저 발광 포인트 라이트
+      const obsLight = new THREE.PointLight(0xff0055, 2.5, 12);
+      obsLight.position.set(0, 1.5, 0);
+      obs.add(obsLight);
 
       obs.position.set(spawnX, 0, spawnZ);
 
-    } else if (typeRand < 0.75) {
-      // 2. 스파이크 큐브 / 마인 (Spike Mine)
+    } else if (typeRand < 0.72) {
+      // 2. 플라즈마 스파이크 마인 (Luminous Spike Mine)
       obs = new THREE.Group();
-      obs.userData = { type: 'mine', hitRadius: 1.3, hitHeight: 2.0, rotSpeed: 0.05 };
+      obs.userData = { type: 'mine', hitRadius: 1.4, hitHeight: 2.2, rotSpeed: 0.06 };
 
-      const coreGeo = new THREE.OctahedronGeometry(1.1, 0);
+      // 중심 고휘도 오렌지/레드 플라즈마 코어
+      const coreGeo = new THREE.SphereGeometry(0.85, 12, 12);
       const coreMat = new THREE.MeshStandardMaterial({
-        color: 0xff4400,
-        emissive: 0xff1100,
-        emissiveIntensity: 0.8,
-        wireframe: true
+        color: 0xff3300,
+        emissive: 0xff5500,
+        emissiveIntensity: 1.2,
+        roughness: 0.2
       });
       const core = new THREE.Mesh(coreGeo, coreMat);
-      core.position.set(0, 1.3, 0);
+      core.position.set(0, 1.4, 0);
       obs.add(core);
+
+      // 회전하는 8방향 네온 옐로우 스파이크 뿔
+      const spikeGeo = new THREE.ConeGeometry(0.24, 1.1, 6);
+      const spikeMat = new THREE.MeshBasicMaterial({ color: 0xffea00 });
+
+      const angles = [
+        [0, 0, 0], [0, Math.PI, 0], [0, Math.PI / 2, 0], [0, -Math.PI / 2, 0],
+        [Math.PI / 2, 0, 0], [-Math.PI / 2, 0, 0], [Math.PI / 4, Math.PI / 4, 0], [-Math.PI / 4, -Math.PI / 4, 0]
+      ];
+      angles.forEach(([rx, ry, rz]) => {
+        const spike = new THREE.Mesh(spikeGeo, spikeMat);
+        spike.rotation.set(rx, ry, rz);
+        spike.position.set(0, 1.4, 0);
+        spike.translateY(0.85);
+        obs.add(spike);
+      });
+
+      // 외곽 네온 펄스 링
+      const ringGeo = new THREE.TorusGeometry(1.65, 0.08, 8, 24);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xff0055 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.set(0, 1.4, 0);
+      obs.add(ring);
+
+      // 바닥 붉은색 경고 서클
+      const decalGeo = new THREE.CircleGeometry(1.6, 16);
+      const decalMat = new THREE.MeshBasicMaterial({
+        color: 0xff3300,
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false
+      });
+      const decal = new THREE.Mesh(decalGeo, decalMat);
+      decal.rotation.x = -Math.PI / 2;
+      decal.position.set(0, 0.05, 0);
+      obs.add(decal);
+
+      // 마인 자체 발광 포인트 라이트
+      const mineLight = new THREE.PointLight(0xff4400, 2.5, 10);
+      mineLight.position.set(0, 1.4, 0);
+      obs.add(mineLight);
 
       obs.position.set(spawnX, 0, spawnZ);
 
     } else {
-      // 3. 거대 사이버 보안 블록 (Mega Cyber Block)
-      const blockGeo = new THREE.BoxGeometry(2.6, 3.2, 1.6);
-      const blockMat = new THREE.MeshStandardMaterial({
-        color: 0x050d24,
-        roughness: 0.3,
-        metalness: 0.8,
-        wireframe: false
-      });
-      obs = new THREE.Mesh(blockGeo, blockMat);
+      // 3. 네온 해저드 블록 (High-Vis Cyber Hazard Block)
+      obs = new THREE.Group();
+      obs.userData = { type: 'block', hitRadius: 1.6, hitHeight: 3.2 };
 
-      // 와이어프레임 외곽선 추가
+      // 선명한 네온 옐로우 & 블랙 사선 스트라이프 바디
+      const blockGeo = new THREE.BoxGeometry(2.7, 3.2, 1.8);
+      const hazardTex = createHazardTexture();
+      const blockMat = new THREE.MeshStandardMaterial({
+        map: hazardTex,
+        roughness: 0.2,
+        metalness: 0.4,
+        emissive: 0x553300,
+        emissiveIntensity: 0.6
+      });
+      const blockMesh = new THREE.Mesh(blockGeo, blockMat);
+      blockMesh.position.set(0, 1.6, 0);
+      obs.add(blockMesh);
+
+      // 눈부신 네온 옐로우 와이어프레임 외곽선
       const wire = new THREE.LineSegments(
         new THREE.EdgesGeometry(blockGeo),
-        new THREE.LineBasicMaterial({ color: 0xff0077, linewidth: 2 })
+        new THREE.LineBasicMaterial({ color: 0xffea00, linewidth: 3 })
       );
+      wire.position.set(0, 1.6, 0);
       obs.add(wire);
 
-      obs.userData = { type: 'block', hitRadius: 1.5, hitHeight: 3.2 };
-      obs.position.set(spawnX, 1.6, spawnZ);
+      // 전면 ⚠️ 경고 홀로그램 표지판 패널
+      const signGeo = new THREE.PlaneGeometry(1.9, 1.9);
+      const signMat = new THREE.MeshBasicMaterial({
+        map: createWarningSignTexture(),
+        transparent: true
+      });
+      const frontSign = new THREE.Mesh(signGeo, signMat);
+      frontSign.position.set(0, 1.6, 0.95);
+      obs.add(frontSign);
+
+      // 상단 회전/점멸 사이렌 비콘
+      const sirenGeo = new THREE.CylinderGeometry(0.3, 0.35, 0.4, 8);
+      const sirenMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
+      const siren = new THREE.Mesh(sirenGeo, sirenMat);
+      siren.position.set(0, 3.4, 0);
+      obs.add(siren);
+
+      // 바닥 경고 프로젝션 프레임
+      const floorLineGeo = new THREE.PlaneGeometry(3.1, 3.0);
+      const floorLineMat = new THREE.MeshBasicMaterial({
+        color: 0xffaa00,
+        transparent: true,
+        opacity: 0.4,
+        depthWrite: false
+      });
+      const floorLine = new THREE.Mesh(floorLineGeo, floorLineMat);
+      floorLine.rotation.x = -Math.PI / 2;
+      floorLine.position.set(0, 0.05, 0);
+      obs.add(floorLine);
+
+      // 경고등 포인트 라이트
+      const blockLight = new THREE.PointLight(0xff8800, 2.5, 12);
+      blockLight.position.set(0, 2.2, 0);
+      obs.add(blockLight);
+
+      obs.position.set(spawnX, 0, spawnZ);
     }
 
     scene.add(obs);
@@ -1650,10 +1842,14 @@
         const obs = obstacles[i];
         obs.position.z += speed;
 
-        // 회전 효과
-        if (obs.userData.rotSpeed) {
-          obs.rotation.x += obs.userData.rotSpeed;
-          obs.rotation.y += obs.userData.rotSpeed;
+        // 장애물 회전 및 애니메이션
+        if (obs.userData.type === 'mine') {
+          obs.rotation.x += 0.03;
+          obs.rotation.y += 0.05;
+        } else if (obs.userData.type === 'barrier') {
+          obs.position.y = Math.sin(elapsedTime * 8) * 0.04;
+        } else if (obs.userData.type === 'block') {
+          obs.rotation.y = Math.sin(elapsedTime * 2) * 0.04;
         }
 
         // 충돌 체크 (거리 및 높이)
